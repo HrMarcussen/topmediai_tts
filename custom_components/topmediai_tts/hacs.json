@@ -1,5 +1,8 @@
 {
-    "name": "TopMediaI TTS for HACS",
+    "name": "TopMediai TTS",
+    "content_in_root": false,
+    "zip_release": false,
+    "filename": "manifest.json",
     "homeassistant": "2023.9.0",
     "render_readme": true
-}
+  }
