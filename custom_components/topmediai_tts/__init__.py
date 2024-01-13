@@ -1,9 +1,13 @@
-"""Custom integration for TopMediai TTS."""
+from homeassistant.const import CONF_API_KEY
+from .const import DOMAIN, CONF_SPEAKER
 
-DOMAIN = "topmediai_tts"
+async def async_setup(hass, config):
+    return True
 
-def setup(hass, config):
-    """Set up the TopMediAI TTS component."""
-    # Import the TTS platform
-    hass.helpers.discovery.load_platform("tts", DOMAIN, {}, config)
+async def async_setup_entry(hass, entry):
+    # Set up TopMediai TTS from a config entry
+    hass.data[DOMAIN] = {
+        CONF_API_KEY: entry.data[CONF_API_KEY],
+        CONF_SPEAKER: entry.data[CONF_SPEAKER]
+    }
     return True

@@ -1,0 +1,15 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Configure TopMediai TTS",
+          "data": {
+            "api_key": "API Key",
+            "speaker": "Speaker ID"
+          }
+        }
+      },
+      "title": "TopMediai TTS"
+    }
+  }
+  
