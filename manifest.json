@@ -1,0 +1,12 @@
+{
+  "domain": "topmediai_tts",
+  "name": "TopMediai TTS",
+  "codeowners": ["@HrMarcussen"],
+  "dependencies": [],
+  "documentation": "https://github.com/sfortis/openai_tts/",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/sfortis/openai_tts/issues",
+  "requirements": [],
+  "version": "1.0.0",
+  "config_flow": false
+}
