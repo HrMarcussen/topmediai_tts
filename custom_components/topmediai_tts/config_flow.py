@@ -84,8 +84,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             options = self.config_entry.options or {}
             data = self.config_entry.data or {}
             
-            current_api_key = options.get(CONF_API_KEY, data.get(CONF_API_KEY, ""))
-            current_speaker = options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
+            current_api_key = str(options.get(CONF_API_KEY, data.get(CONF_API_KEY, "")))
+            current_speaker = str(options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER)))
 
             return self.async_show_form(
                 step_id="init",
