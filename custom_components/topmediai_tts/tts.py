@@ -7,6 +7,7 @@ from homeassistant.components.tts import (
     PLATFORM_SCHEMA,
     TextToSpeechEntity,
     Voice,
+    ATTR_VOICE,
 )
 from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import aiohttp_client, config_validation as cv
@@ -63,6 +64,11 @@ class TopMediAITTS(TextToSpeechEntity):
         """Run when entity about to be added to hass."""
         await self._fetch_voices()
         self.async_write_ha_state()
+
+    @property
+    def supported_options(self):
+        """Return list of supported options."""
+        return [ATTR_VOICE]
 
     @property
     def default_language(self):
