@@ -6,6 +6,7 @@ from homeassistant.components.tts import (
     CONF_LANG,
     PLATFORM_SCHEMA,
     TextToSpeechEntity,
+    Voice,
 )
 from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import aiohttp_client, config_validation as cv
@@ -15,6 +16,7 @@ from .const import CONF_SPEAKER, DEFAULT_LANG, DEFAULT_SPEAKER, DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 TOPMEDIAI_TTS_URL = "https://api.topmediai.com/v1/text2speech"
+TOPMEDIAI_VOICES_URL = "https://api.topmediai.com/v1/voices_list"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -27,33 +29,15 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 async def async_get_engine(hass, config, discovery_info=None):
     """Set up TopMediai TTS component (Legacy YAML)."""
-    # This is for legacy YAML setup. For config entries, async_setup_entry is used.
-    # To support legacy yaml with the new Entity model, we can't easily return a Provider
-    # if we switched to TextToSpeechEntity totally.
-    # However, HA supports returning a Provider that inherits form Provider.
-    # But strictly speaking, TextToSpeechEntity is for Config Entries (mostly).
-    # Since we want Config Entry support, we should prioritize `async_setup_entry`.
-    # For YAML support, we can still use Provider or map it.
-    # For simplicity and modern support, we'll return None here or deprecate YAML if strictly config flow.
-    # BUT, to keep backwards compatibility, we can return a Provider wrapper?
-    # Actually, simpler: Use `async_setup_platform` to load the entity from YAML.
+    # Legacy support skipped as per plan
     pass
-
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the TopMediai TTS platform via YAML."""
-    async_add_entities([TopMediAITTS(
-        hass,
-        config[CONF_API_KEY],
-        config.get(CONF_LANG, DEFAULT_LANG),
-        config.get(CONF_SPEAKER, DEFAULT_SPEAKER),
-    )])
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up TopMediai TTS from a config entry."""
     async_add_entities([TopMediAITTS(
         hass,
         config_entry.data[CONF_API_KEY],
-        DEFAULT_LANG, # Language is often dynamic or per-call, but user can set default
+        DEFAULT_LANG, 
         config_entry.data[CONF_SPEAKER],
         config_entry
     )])
@@ -71,6 +55,8 @@ class TopMediAITTS(TextToSpeechEntity):
         self._config_entry = config_entry
         self._attr_name = "TopMediai"
         self._attr_unique_id = config_entry.entry_id if config_entry else None
+        self._voices = {} # Cache for voices: {voice_id: Voice(...)}
+        self._voices_data = {} # Cache for raw API data: {voice_name: api_data_dict}
 
     @property
     def default_language(self):
@@ -80,6 +66,9 @@ class TopMediAITTS(TextToSpeechEntity):
     @property
     def supported_languages(self):
         """Return list of supported languages."""
+        if self._voices:
+             # Extract unique languages from loaded voices
+             return list({v.language for v in self._voices.values()})
         return [self._language]
         
     @property
@@ -92,14 +81,31 @@ class TopMediAITTS(TextToSpeechEntity):
         websession = aiohttp_client.async_get_clientsession(self.hass)
         options = options or {}
         
-        # Allow overriding speaker from options, falling back to init speaker
-        speaker = options.get(CONF_SPEAKER, self._speaker)
+        # Determine speaker:
+        # 1. Check 'voice' option (from HA Voice Assistant or tts.speak voice)
+        # 2. Check 'speaker' option (custom option for this integration)
+        # 3. Fallback to default configured speaker
         
-        # Check if we have updated options in config entry (if used)
+        speaker_uuid = self._speaker
+
+        # If a specific voice ID (name in our case) is requested via HA
+        voice_name = options.get("voice")
+        if voice_name:
+             # Find the UUID for this voice name in our cache
+             if voice_name in self._voices_data:
+                 speaker_uuid = self._voices_data[voice_name].get("speaker")
+             else:
+                 _LOGGER.warning("Requested voice '%s' not found in cache.", voice_name)
+        
+        # Allow raw speaker UUID override via options
+        if CONF_SPEAKER in options:
+            speaker_uuid = options[CONF_SPEAKER]
+        
+        # Config entry options override (lowest priority usually, but let's check config flow)
         if self._config_entry and self._config_entry.options:
-             speaker = self._config_entry.options.get(CONF_SPEAKER, speaker)
-             # Also update API key if changed in options? Usually sensitive data isn't in options.
-             # API Key should be in data.
+             config_speaker = self._config_entry.options.get(CONF_SPEAKER)
+             if config_speaker and not voice_name and not options.get(CONF_SPEAKER):
+                 speaker_uuid = config_speaker
 
         headers = {
             "x-api-key": self._api_key,
@@ -107,7 +113,7 @@ class TopMediAITTS(TextToSpeechEntity):
         }
         data = {
             "text": message,
-            "speaker": speaker,
+            "speaker": speaker_uuid,
             "emotion": "Neutral",
         }
 
@@ -135,3 +141,49 @@ class TopMediAITTS(TextToSpeechEntity):
         except Exception as err:
             _LOGGER.error("Error during TopMediai TTS request: %s", err)
             return None, None
+
+    async def async_get_tts_voices(self, language):
+        """Fetch TTS voices from TopMediai."""
+        if not self._voices:
+            await self._fetch_voices()
+        
+        if language is None:
+            return list(self._voices.values())
+            
+        return [v for v in self._voices.values() if v.language == language]
+
+    async def _fetch_voices(self):
+        """Fetch voices from API and populate cache."""
+        websession = aiohttp_client.async_get_clientsession(self.hass)
+        try:
+            # Assuming GET request as per docs found earlier (though curl snippet had no headers, usually key is needed?)
+            # Re-checking documentation snippet: it didn't explicitly shout headers for GET, but let's try with key.
+            headers = {"x-api-key": self._api_key}
+            async with websession.get(TOPMEDIAI_VOICES_URL, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    # Response format: { "Voice": [ { "name": ..., "speaker": ..., "Languagename": ... } ] }
+                    voice_list = data.get("Voice", [])
+                    self._voices = {}
+                    self._voices_data = {}
+                    
+                    for v_data in voice_list:
+                        name = v_data.get("name")
+                        speaker_id = v_data.get("speaker")
+                        lang = v_data.get("Languagename", "en-US") # Default if missing
+                        
+                        if name and speaker_id:
+                            # Use name as the ID for HA 
+                            self._voices[name] = Voice(
+                                voice_id=name,
+                                name=name,
+                                language=lang
+                            )
+                            # Store raw data for UUID lookup
+                            self._voices_data[name] = v_data
+                    
+                    _LOGGER.debug("Fetched %d voices from TopMediaAI", len(self._voices))
+                else:
+                    _LOGGER.error("Failed to fetch voices: %s", response.status)
+        except Exception as err:
+            _LOGGER.error("Error fetching voices: %s", err)
