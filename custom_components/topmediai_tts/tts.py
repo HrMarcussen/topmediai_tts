@@ -12,6 +12,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import aiohttp_client, config_validation as cv
 
 from .const import CONF_SPEAKER, DEFAULT_LANG, DEFAULT_SPEAKER, DOMAIN
+from .languages import get_iso_code
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,7 +176,8 @@ class TopMediAITTS(TextToSpeechEntity):
                     for v_data in voice_list:
                         name = v_data.get("name")
                         speaker_id = v_data.get("speaker")
-                        lang = v_data.get("Languagename", "en-US") # Default if missing
+                        raw_lang = v_data.get("Languagename", "English")
+                        lang = get_iso_code(raw_lang)
                         
                         if name and speaker_id:
                             # Use name as the ID for HA 

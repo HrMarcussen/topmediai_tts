@@ -79,27 +79,28 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+        try:
+            # Safely get default values
+            options = self.config_entry.options or {}
+            data = self.config_entry.data or {}
             
-        # Safely get default values
-        options = self.config_entry.options or {}
-        data = self.config_entry.data or {}
-        
-        current_api_key = options.get(CONF_API_KEY, data.get(CONF_API_KEY, ""))
-        current_speaker = options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
+            current_api_key = options.get(CONF_API_KEY, data.get(CONF_API_KEY, ""))
+            current_speaker = options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
 
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    # Usually we don't allow changing API key in options, but if we do...
-                    # Or maybe just speaker. Let's keep both for flexibility.
-                    vol.Required(CONF_API_KEY, default=current_api_key): str,
-                    vol.Required(CONF_SPEAKER, default=current_speaker): str,
-                }
-            ),
-        )
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema(
+                    {
+                        # Usually we don't allow changing API key in options, but if we do...
+                        # Or maybe just speaker. Let's keep both for flexibility.
+                        vol.Required(CONF_API_KEY, default=current_api_key): str,
+                        vol.Required(CONF_SPEAKER, default=current_speaker): str,
+                    }
+                ),
+            )
+        except Exception as e:
+            _LOGGER.exception("Unexpected error in OptionsFlowHandler: %s", e)
+            return self.async_abort(reason="unknown_error")
 
 
 class CannotConnect(Exception):
