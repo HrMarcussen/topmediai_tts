@@ -72,12 +72,11 @@ class TopMediAITTS(TextToSpeechEntity):
     @property
     def supported_languages(self):
         """Return list of supported languages."""
-        if self._voices:
-             # Extract unique languages from loaded voices
-             return list({v.language for v in self._voices.values()})
+        if self._voices_data:
+             # Extract unique languages from loaded voices data
+             return list({v.get("mapped_language") for v in self._voices_data.values() if v.get("mapped_language")})
         
         # DEBUG FALLBACK: Return common languages if voices failed to load
-        # This allows the UI to show the integration even if API fails
         return ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU", "sv-SE"]
 
     async def async_get_tts_audio(self, message, language, options=None):
@@ -86,10 +85,6 @@ class TopMediAITTS(TextToSpeechEntity):
         options = options or {}
         
         # Determine speaker:
-        # 1. Check 'voice' option (from HA Voice Assistant or tts.speak voice)
-        # 2. Check 'speaker' option (custom option for this integration)
-        # 3. Fallback to default configured speaker
-        
         speaker_uuid = self._speaker
 
         # If a specific voice ID (name in our case) is requested via HA
@@ -152,7 +147,14 @@ class TopMediAITTS(TextToSpeechEntity):
         if language is None:
             return list(self._voices.values())
             
-        return [v for v in self._voices.values() if v.language == language]
+        # Filter voices by language using the data cache
+        found_voices = []
+        for name, data in self._voices_data.items():
+            if data.get("mapped_language") == language:
+                voice = self._voices.get(name)
+                if voice:
+                    found_voices.append(voice)
+        return found_voices
 
     async def _fetch_voices(self):
         """Fetch voices from API and populate cache."""
@@ -181,6 +183,8 @@ class TopMediAITTS(TextToSpeechEntity):
                                 voice_id=name,
                                 name=name,
                             )
+                            # Store mapped language in data for easy access
+                            v_data["mapped_language"] = lang
                             self._voices_data[name] = v_data
                     
                     _LOGGER.warning("TopMediaAI: Successfully cached %d voices.", len(self._voices))
