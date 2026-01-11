@@ -1,12 +1,14 @@
 {
   "domain": "topmediai_tts",
   "name": "TopMediai TTS",
-  "codeowners": ["@HrMarcussen"],
+  "codeowners": [
+    "@HrMarcussen"
+  ],
   "dependencies": [],
   "documentation": "https://github.com/HrMarcussen/topmediai_tts/",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/HrMarcussen/topmediai_tts/issues",
   "requirements": [],
-  "version": "1.0.2",
+  "version": "1.0.3",
   "config_flow": true
 }
