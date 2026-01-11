@@ -58,6 +58,11 @@ class TopMediAITTS(TextToSpeechEntity):
         self._voices = {} # Cache for voices: {voice_id: Voice(...)}
         self._voices_data = {} # Cache for raw API data: {voice_name: api_data_dict}
 
+    async def async_added_to_hass(self):
+        """Run when entity about to be added to hass."""
+        await self._fetch_voices()
+        self.async_write_ha_state()
+
     @property
     def default_language(self):
         """Return the default language."""

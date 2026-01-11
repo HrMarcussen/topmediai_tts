@@ -83,8 +83,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
             
         # Safely get default values
-        current_api_key = self.config_entry.options.get(CONF_API_KEY, self.config_entry.data.get(CONF_API_KEY, ""))
-        current_speaker = self.config_entry.options.get(CONF_SPEAKER, self.config_entry.data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
+        options = self.config_entry.options or {}
+        data = self.config_entry.data or {}
+        
+        current_api_key = options.get(CONF_API_KEY, data.get(CONF_API_KEY, ""))
+        current_speaker = options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
 
         return self.async_show_form(
             step_id="init",
