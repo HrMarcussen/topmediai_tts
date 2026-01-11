@@ -76,14 +76,14 @@ class TopMediaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry):
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         try:
             _LOGGER.warning("TopMediaAI: OptionsFlow async_step_init called.")
             # Safely get default values
-            options = self.config_entry.options or {}
-            data = self.config_entry.data or {}
+            options = self._config_entry.options or {}
+            data = self._config_entry.data or {}
             
             _LOGGER.warning("TopMediaAI: Retrieving options. Options: %s, Data: %s", options, data)
             current_api_key = str(options.get(CONF_API_KEY, data.get(CONF_API_KEY, "")))

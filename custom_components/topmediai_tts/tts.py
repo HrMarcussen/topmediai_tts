@@ -180,7 +180,6 @@ class TopMediAITTS(TextToSpeechEntity):
                             self._voices[name] = Voice(
                                 voice_id=name,
                                 name=name,
-                                language=lang
                             )
                             self._voices_data[name] = v_data
                     
