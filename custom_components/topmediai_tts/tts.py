@@ -75,12 +75,10 @@ class TopMediAITTS(TextToSpeechEntity):
         if self._voices:
              # Extract unique languages from loaded voices
              return list({v.language for v in self._voices.values()})
-        return [self._language]
         
-    @property
-    def supported_options(self):
-        """Return list of supported options."""
-        return [CONF_SPEAKER]
+        # DEBUG FALLBACK: Return common languages if voices failed to load
+        # This allows the UI to show the integration even if API fails
+        return ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU", "sv-SE"]
 
     async def async_get_tts_audio(self, message, language, options=None):
         """Load TTS from TopMediai."""
@@ -101,13 +99,13 @@ class TopMediAITTS(TextToSpeechEntity):
              if voice_name in self._voices_data:
                  speaker_uuid = self._voices_data[voice_name].get("speaker")
              else:
-                 _LOGGER.warning("Requested voice '%s' not found in cache.", voice_name)
+                 _LOGGER.warning("TopMediaAI: Requested voice '%s' not found in cache. Using default.", voice_name)
         
         # Allow raw speaker UUID override via options
         if CONF_SPEAKER in options:
             speaker_uuid = options[CONF_SPEAKER]
         
-        # Config entry options override (lowest priority usually, but let's check config flow)
+        # Config entry options override
         if self._config_entry and self._config_entry.options:
              config_speaker = self._config_entry.options.get(CONF_SPEAKER)
              if config_speaker and not voice_name and not options.get(CONF_SPEAKER):
@@ -130,8 +128,6 @@ class TopMediAITTS(TextToSpeechEntity):
                 response.raise_for_status()
                 response_data = await response.json()
 
-                _LOGGER.debug("TopMediAI API response data: %s", response_data)
-
                 if "data" in response_data and "oss_url" in response_data["data"]:
                     audio_url = response_data["data"]["oss_url"]
                     async with websession.get(audio_url) as audio_response:
@@ -140,12 +136,12 @@ class TopMediAITTS(TextToSpeechEntity):
                         return "mp3", audio_content
                 else:
                     _LOGGER.error(
-                        "oss_url not found in the response: %s", response_data
+                        "TopMediaAI: oss_url not found in response: %s", response_data
                     )
                     return None, None
 
         except Exception as err:
-            _LOGGER.error("Error during TopMediai TTS request: %s", err)
+            _LOGGER.error("TopMediaAI: Error during TTS request: %s", err)
             return None, None
 
     async def async_get_tts_voices(self, language):
@@ -160,16 +156,17 @@ class TopMediAITTS(TextToSpeechEntity):
 
     async def _fetch_voices(self):
         """Fetch voices from API and populate cache."""
+        _LOGGER.warning("TopMediaAI: Starting voice fetch...")
         websession = aiohttp_client.async_get_clientsession(self.hass)
         try:
-            # Assuming GET request as per docs found earlier (though curl snippet had no headers, usually key is needed?)
-            # Re-checking documentation snippet: it didn't explicitly shout headers for GET, but let's try with key.
             headers = {"x-api-key": self._api_key}
             async with websession.get(TOPMEDIAI_VOICES_URL, headers=headers) as response:
+                _LOGGER.warning("TopMediaAI: Voice fetch status: %s", response.status)
                 if response.status == 200:
                     data = await response.json()
-                    # Response format: { "Voice": [ { "name": ..., "speaker": ..., "Languagename": ... } ] }
                     voice_list = data.get("Voice", [])
+                    _LOGGER.warning("TopMediaAI: Found %d voices in API response.", len(voice_list))
+                    
                     self._voices = {}
                     self._voices_data = {}
                     
@@ -180,17 +177,15 @@ class TopMediAITTS(TextToSpeechEntity):
                         lang = get_iso_code(raw_lang)
                         
                         if name and speaker_id:
-                            # Use name as the ID for HA 
                             self._voices[name] = Voice(
                                 voice_id=name,
                                 name=name,
                                 language=lang
                             )
-                            # Store raw data for UUID lookup
                             self._voices_data[name] = v_data
                     
-                    _LOGGER.debug("Fetched %d voices from TopMediaAI", len(self._voices))
+                    _LOGGER.warning("TopMediaAI: Successfully cached %d voices.", len(self._voices))
                 else:
-                    _LOGGER.error("Failed to fetch voices: %s", response.status)
+                    _LOGGER.error("TopMediaAI: Failed to fetch voices. Status: %s. Body: %s", response.status, await response.text())
         except Exception as err:
-            _LOGGER.error("Error fetching voices: %s", err)
+            _LOGGER.error("TopMediaAI: Exception fetching voices: %s", err)
