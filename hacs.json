@@ -1,5 +1,5 @@
 {
     "name": "TopMediaI TTS for HACS",
-    "homeassistant": "2023.9.0",
+    "homeassistant": "2024.1.0",
     "render_readme": true
 }
