@@ -170,16 +170,16 @@ class TopMediAITTS(TextToSpeechEntity):
 
     async def _fetch_voices(self):
         """Fetch voices from API and populate cache."""
-        _LOGGER.warning("TopMediaAI: Starting voice fetch...")
+        _LOGGER.debug("TopMediaAI: Starting voice fetch...")
         websession = aiohttp_client.async_get_clientsession(self.hass)
         try:
             headers = {"x-api-key": self._api_key}
             async with websession.get(TOPMEDIAI_VOICES_URL, headers=headers) as response:
-                _LOGGER.warning("TopMediaAI: Voice fetch status: %s", response.status)
+                _LOGGER.debug("TopMediaAI: Voice fetch status: %s", response.status)
                 if response.status == 200:
                     data = await response.json()
                     voice_list = data.get("Voice", [])
-                    _LOGGER.warning("TopMediaAI: Found %d voices in API response.", len(voice_list))
+                    _LOGGER.debug("TopMediaAI: Found %d voices in API response.", len(voice_list))
                     
                     self._voices = {}
                     self._voices_data = {}
@@ -211,7 +211,7 @@ class TopMediAITTS(TextToSpeechEntity):
                             
                         self._voices_data[name] = v_data
                     
-                    _LOGGER.warning("TopMediaAI: Successfully cached %d voices.", len(self._voices))
+                    _LOGGER.debug("TopMediaAI: Successfully cached %d voices.", len(self._voices))
                 else:
                     _LOGGER.error("TopMediaAI: Failed to fetch voices. Status: %s. Body: %s", response.status, await response.text())
         except Exception as err:

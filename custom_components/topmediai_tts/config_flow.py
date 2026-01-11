@@ -84,12 +84,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 # Update options
                 return self.async_create_entry(title="", data=user_input)
 
-            _LOGGER.warning("TopMediaAI: OptionsFlow async_step_init called.")
             # Safely get default values
             options = self._config_entry.options or {}
             data = self._config_entry.data or {}
             
-            _LOGGER.warning("TopMediaAI: Retrieving options. Options: %s, Data: %s", options, data)
             current_api_key = str(options.get(CONF_API_KEY, data.get(CONF_API_KEY, "")))
             current_speaker = str(options.get(CONF_SPEAKER, data.get(CONF_SPEAKER, DEFAULT_SPEAKER)))
 
