@@ -5,14 +5,14 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
 from homeassistant.helpers import aiohttp_client
 
-from .const import DOMAIN, CONF_SPEAKER
+from .const import DOMAIN, CONF_SPEAKER, DEFAULT_SPEAKER
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str,
-        vol.Required(CONF_SPEAKER): str,
+        vol.Required(CONF_SPEAKER, default=DEFAULT_SPEAKER): str,
     }
 )
 
@@ -25,8 +25,6 @@ async def validate_input(hass, data):
     websession = aiohttp_client.async_get_clientsession(hass)
     api_key = data[CONF_API_KEY]
     
-    # We can try to hit the user info endpoint to validate the key
-    # Based on docs: https://docs.topmediai.com/api-reference/x-api-key-info/get-api-key-info
     url = "https://api.topmediai.com/v1/get_api_key_info"
     headers = {"x-api-key": api_key}
 
@@ -34,21 +32,20 @@ async def validate_input(hass, data):
         async with websession.get(url, headers=headers) as response:
             if response.status == 401 or response.status == 403:
                 raise InvalidAuth
-            if response.status != 200:
-                # If the endpoint doesn't return 200, we might still proceed but warn?
-                # Or stricly fail. Let's fail on auth errors only strictly.
-                # Actually, if the key is invalid, we expect 4xx.
-                # If 200, we are good.
-                pass
+            # 200 is success. 
+            # Some APIs might return 200 with error body, but usually auth failure is 4xx.
+            # If we really want to check payload:
+            # json = await response.json()
+            # if json.get('code') != 0: ...
+            
+            # Simple check:
             response.raise_for_status()
     except Exception as err:
         _LOGGER.error("Failed to validate API key: %s", err)
-        # If we can't connect, we might raise CannotConnect
-        # But for now let's assume if it throws, it's invalid or connection error
         raise CannotConnect from err
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class TopMediaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for TopMediai TTS."""
 
     VERSION = 1
@@ -84,23 +81,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
+            
+        # Safely get default values
+        current_api_key = self.config_entry.options.get(CONF_API_KEY, self.config_entry.data.get(CONF_API_KEY, ""))
+        current_speaker = self.config_entry.options.get(CONF_SPEAKER, self.config_entry.data.get(CONF_SPEAKER, DEFAULT_SPEAKER))
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        CONF_API_KEY,
-                        default=self.config_entry.options.get(
-                            CONF_API_KEY, self.config_entry.data.get(CONF_API_KEY)
-                        ),
-                    ): str,
-                    vol.Required(
-                        CONF_SPEAKER,
-                        default=self.config_entry.options.get(
-                            CONF_SPEAKER, self.config_entry.data.get(CONF_SPEAKER)
-                        ),
-                    ): str,
+                    # Usually we don't allow changing API key in options, but if we do...
+                    # Or maybe just speaker. Let's keep both for flexibility.
+                    vol.Required(CONF_API_KEY, default=current_api_key): str,
+                    vol.Required(CONF_SPEAKER, default=current_speaker): str,
                 }
             ),
         )
