@@ -4,9 +4,9 @@
   "codeowners": ["@HrMarcussen"],
   "dependencies": [],
   "documentation": "https://github.com/HrMarcussen/topmediai_tts/",
-  "iot_class": "cloud_polling",
+  "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/HrMarcussen/topmediai_tts/issues",
   "requirements": [],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "config_flow": true
 }
