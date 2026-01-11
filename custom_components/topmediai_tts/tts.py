@@ -57,6 +57,7 @@ class TopMediAITTS(TextToSpeechEntity):
         self._config_entry = config_entry
         self._attr_name = "TopMediai"
         self._attr_unique_id = config_entry.entry_id if config_entry else None
+        self._attr_supported_options = [ATTR_VOICE]
         self._voices = {} # Cache for voices: {voice_id: Voice(...)}
         self._voices_data = {} # Cache for raw API data: {voice_name: api_data_dict}
 
@@ -64,11 +65,6 @@ class TopMediAITTS(TextToSpeechEntity):
         """Run when entity about to be added to hass."""
         await self._fetch_voices()
         self.async_write_ha_state()
-
-    @property
-    def supported_options(self):
-        """Return list of supported options."""
-        return [ATTR_VOICE]
 
     @property
     def default_language(self):
@@ -85,13 +81,9 @@ class TopMediAITTS(TextToSpeechEntity):
                  langs = v.get("mapped_languages")
                  if langs:
                      languages.update(langs)
-             
-             langs_list = list(languages)
-             _LOGGER.warning("TopMediaAI: Returning %d supported languages: %s", len(langs_list), langs_list)
-             return langs_list
+             return list(languages)
         
-        # DEBUG FALLBACK
-        _LOGGER.warning("TopMediaAI: Voices not loaded yet, returning fallback languages.")
+        # DEBUG FALLBACK: Return common languages if voices failed to load
         return ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU", "sv-SE"]
 
     async def async_get_tts_audio(self, message, language, options=None):
@@ -156,12 +148,10 @@ class TopMediAITTS(TextToSpeechEntity):
 
     async def async_get_tts_voices(self, language):
         """Fetch TTS voices from TopMediai."""
-        _LOGGER.warning("TopMediaAI: async_get_tts_voices called with language=%s", language)
         if not self._voices:
             await self._fetch_voices()
         
         if language is None:
-            _LOGGER.warning("TopMediaAI: Returning all %d voices (no lang filter)", len(self._voices))
             return list(self._voices.values())
             
         # Filter voices by language using the data cache
@@ -172,8 +162,6 @@ class TopMediAITTS(TextToSpeechEntity):
                 voice = self._voices.get(name)
                 if voice:
                     found_voices.append(voice)
-        
-        _LOGGER.warning("TopMediaAI: Found %d voices for language %s", len(found_voices), language)
         return found_voices
 
     async def _fetch_voices(self):
