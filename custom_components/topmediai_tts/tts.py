@@ -74,7 +74,12 @@ class TopMediAITTS(TextToSpeechEntity):
         """Return list of supported languages."""
         if self._voices_data:
              # Extract unique languages from loaded voices data
-             return list({v.get("mapped_language") for v in self._voices_data.values() if v.get("mapped_language")})
+             languages = set()
+             for v in self._voices_data.values():
+                 langs = v.get("mapped_languages")
+                 if langs:
+                     languages.update(langs)
+             return list(languages)
         
         # DEBUG FALLBACK: Return common languages if voices failed to load
         return ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU", "sv-SE"]
@@ -150,7 +155,8 @@ class TopMediAITTS(TextToSpeechEntity):
         # Filter voices by language using the data cache
         found_voices = []
         for name, data in self._voices_data.items():
-            if data.get("mapped_language") == language:
+            mapped_langs = data.get("mapped_languages", [])
+            if language in mapped_langs:
                 voice = self._voices.get(name)
                 if voice:
                     found_voices.append(voice)
@@ -175,17 +181,29 @@ class TopMediAITTS(TextToSpeechEntity):
                     for v_data in voice_list:
                         name = v_data.get("name")
                         speaker_id = v_data.get("speaker")
-                        raw_lang = v_data.get("Languagename", "English")
-                        lang = get_iso_code(raw_lang)
+                        if not name or not speaker_id:
+                            continue
+
+                        raw_lang_str = v_data.get("Languagename", "English")
+                        # Split multiple languages by comma
+                        raw_langs = [l.strip() for l in raw_lang_str.split(",")]
+                        mapped_langs = set()
+                        for raw_lang in raw_langs:
+                            lang_code = get_iso_code(raw_lang)
+                            mapped_langs.add(lang_code)
                         
-                        if name and speaker_id:
-                            self._voices[name] = Voice(
-                                voice_id=name,
-                                name=name,
-                            )
-                            # Store mapped language in data for easy access
-                            v_data["mapped_language"] = lang
-                            self._voices_data[name] = v_data
+                        self._voices[name] = Voice(
+                            voice_id=name,
+                            name=name,
+                        )
+                        # Store mapped languages list in data for easy access
+                        v_data["mapped_languages"] = list(mapped_langs)
+                        # Also keep single mapped_language for backward compat or primary sorting? 
+                        # Just grab the first one if we need a single one, but filter logic uses list.
+                        if mapped_langs:
+                            v_data["mapped_language"] = list(mapped_langs)[0]
+                            
+                        self._voices_data[name] = v_data
                     
                     _LOGGER.warning("TopMediaAI: Successfully cached %d voices.", len(self._voices))
                 else:

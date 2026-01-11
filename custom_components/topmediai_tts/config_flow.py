@@ -80,6 +80,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         try:
+            if user_input is not None:
+                # Update options
+                return self.async_create_entry(title="", data=user_input)
+
             _LOGGER.warning("TopMediaAI: OptionsFlow async_step_init called.")
             # Safely get default values
             options = self._config_entry.options or {}
