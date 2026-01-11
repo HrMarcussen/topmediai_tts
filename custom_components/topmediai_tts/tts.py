@@ -85,9 +85,13 @@ class TopMediAITTS(TextToSpeechEntity):
                  langs = v.get("mapped_languages")
                  if langs:
                      languages.update(langs)
-             return list(languages)
+             
+             langs_list = list(languages)
+             _LOGGER.warning("TopMediaAI: Returning %d supported languages: %s", len(langs_list), langs_list)
+             return langs_list
         
-        # DEBUG FALLBACK: Return common languages if voices failed to load
+        # DEBUG FALLBACK
+        _LOGGER.warning("TopMediaAI: Voices not loaded yet, returning fallback languages.")
         return ["en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pl-PL", "pt-PT", "ru-RU", "sv-SE"]
 
     async def async_get_tts_audio(self, message, language, options=None):
@@ -152,10 +156,12 @@ class TopMediAITTS(TextToSpeechEntity):
 
     async def async_get_tts_voices(self, language):
         """Fetch TTS voices from TopMediai."""
+        _LOGGER.warning("TopMediaAI: async_get_tts_voices called with language=%s", language)
         if not self._voices:
             await self._fetch_voices()
         
         if language is None:
+            _LOGGER.warning("TopMediaAI: Returning all %d voices (no lang filter)", len(self._voices))
             return list(self._voices.values())
             
         # Filter voices by language using the data cache
@@ -166,6 +172,8 @@ class TopMediAITTS(TextToSpeechEntity):
                 voice = self._voices.get(name)
                 if voice:
                     found_voices.append(voice)
+        
+        _LOGGER.warning("TopMediaAI: Found %d voices for language %s", len(found_voices), language)
         return found_voices
 
     async def _fetch_voices(self):
